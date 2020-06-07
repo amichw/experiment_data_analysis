@@ -18,9 +18,11 @@
 //TODO: space b4  white -  feedback  - early : rerun experiment.
 //TODO: space after green - score.
 var startTime = new Date().getTime();
+let expectedTargetTime = -1;
+
 console.log(startTime);
-squareElement=document.getElementById('square');
-feedbackElement=document.getElementById('feedback');
+let squareElement=document.getElementById('square');
+let  feedbackElement=document.getElementById('feedback');
 
 const EARLY_SRC = 'Additional%20Instructions/tooearly.jpg';
 const ONLY_STIMULI_SRC = 'Additional%20Instructions/resptarget.jpg';
@@ -51,22 +53,28 @@ var trialNum = 0;
 let asyncState = -1;
 let result = -1;
 let resultValid = false;
-let rythmTrialsNum = 5;
+let rythmTrialsNum = 6;
 res = runRhythmTask2();
 
 async function runRhythmTask2() {
     trialNum = 0;
     // currentTaskArray = rhythmTask;
     let results = [];
+    let response = -1;
     while (trialNum<rythmTrialsNum){
         setupRhythm();
         let temp = await singleRhythmTrial2();
-        if (temp > -1){
-            results.push(temp);
+        if (temp !== null){
+            // results.push(temp);
             trialNum++;
+            if (temp<0){response = -1;}
+            else if(temp===MS_SHOW_TARGET){response=0;}
+            else {response=1;}
+            results.push({1:1123, 2:1, 3:1, 4:trialNum,5:'5', 6:'6', 7:1, 8:0, 9:response,10: temp, 11:36});
         }
     }
     console.log("results", results);
+    exportXL(results)
     return results;
 }
 
@@ -84,6 +92,8 @@ function setupRhythm() {
     color = '#ffffff'; //white
     timers.push(setTimeout(showStimuli, ISI[3], squareElement, MS_SHOW_CUE, color));
     timers.push(setTimeout(showTarget, ISI[4]));
+    expectedTargetTime = getElapsedMS() + ISI[4];
+
     timers.push(setTimeout(feedbackLate , ISI[4]+MS_SHOW_TARGET));
 
 }
@@ -111,8 +121,9 @@ document.addEventListener('keyup', event => {
 
 function singleRhythmTrial2(){
     return new Promise(resolve => {setTimeout(()=> {
-        if (!resultValid) {resolve(-1);} // Do not count as trial
-        if (result===0){setTimeout(()=>{resolve(0);}, MS_SHOW_FEEDBACK - ( getElapsedMS()-targetShownTS))} // wait for "late" feedback
+        if (!resultValid) {resolve(null);} // Do not count as trial
+        if (result<0)  // early:
+        {setTimeout(()=>{resolve(result);}, MS_SHOW_FEEDBACK - ( getElapsedMS()-result))} // wait for "late" feedback
         else{ resolve(result);}
     }, ISI[4]+MS_SHOW_TARGET+5)}); // show target
 
@@ -208,7 +219,7 @@ function feedbackLate(){
     resetState();
     resultValid = true;
     targetShownTS = getElapsedMS(); // temporarily, for timing waiting.
-    result = 0;
+    result = MS_SHOW_TARGET;
     feedbackElement.src = NO_RESPONSE_SRC;
     showMS(feedbackElement, MS_SHOW_FEEDBACK);
     // setTimeout(doNextTrial, MS_SHOW_FEEDBACK);
@@ -238,6 +249,7 @@ function showTarget(){
 
 
 function getElapsedMS(){return new Date().getTime() - startTime;}
+function getMSRelativeToTarget(){return getElapsedMS() - expectedTargetTime;}
 
 
 function hideNow(object){ object.style.display = 'none';}
@@ -268,7 +280,7 @@ function shuffleArray(array) {
 document.onkeydown = function (ev) {
     if(ev.keyCode === 32 || ev.key===' ' ){
         // console.log("space bar pressed", getElapsedMS());
-        cresult = getElapsedMS() - targetShownTS;
+        let cresult = getElapsedMS() - targetShownTS;
         switch(state) {
             case TARGET_READY:  // saw target
                 resetState();
@@ -282,7 +294,8 @@ document.onkeydown = function (ev) {
                 console.log("WRONG  minus score?!!", cresult);
                 resultValid = true;
                 targetShownTS = getElapsedMS(); // temporarily, for timing waiting.
-                result = 0;  //?? need sign for early
+                result = getMSRelativeToTarget();
+                console.log("Early: ", result);
                 feedbackNoTarget();
                 break;
             case TARGET_UNDEFINED:
