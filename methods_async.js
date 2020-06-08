@@ -1,10 +1,10 @@
 
-// TODO: CHANGE TO ASYNC/Await !!  :)
+// TODO: runAnyTask to : runAntTrial which will be wrapped in runBlock(type??)
+//   add bool:showTarget for non-target. if not so don't show lateFeedback.. and target..
 
 //TODO: rhythm : 75% target, 25% no target
 //TODO: random : same but instead of 600MS between stimuli - random
 //TODO: pairs : red-red, then white-green. intrapair-random 600/900 MS. interpair: random
-
 
 //
 // params.Time.cue=[0.6; 0.9]; % target intervals
@@ -14,9 +14,9 @@
 // params.Time.tar=0.15;
 // params.Time.ITI=[0.8 1.1 1.4];
 
-//TODO: space b4 green  - MArk as wrong (score? - minus something??)
-//TODO: space b4  white -  feedback  - early : rerun experiment.
-//TODO: space after green - score.
+
+"use strict";
+
 var startTime = new Date().getTime();
 let expectedTargetTime = -1;
 
@@ -54,7 +54,9 @@ let asyncState = -1;
 let result = -1;
 let resultValid = false;
 let rythmTrialsNum = 6;
-res = runRhythmTask2();
+// res = runRhythmTask2();
+// let res = runRhythmTask3();
+let res = runAnyTask([600,1300,2000],2700,3400, 6 );
 
 async function runRhythmTask2() {
     trialNum = 0;
@@ -78,6 +80,70 @@ async function runRhythmTask2() {
     return results;
 }
 
+
+
+async function runAnyTask(reds, white, target, numTrials) {
+    trialNum = 0;
+    let results = [];
+    let response = -1;
+    while (trialNum<numTrials){
+        await waitMS(MS_BETWEEN_TRIALS);
+        setupTrial(reds, white, target);
+        let temp = await timeReaction(target, MS_SHOW_TARGET);
+        hideNow(squareElement);
+        console.log("relative reaction: ", temp);
+        if (temp !== null){
+            trialNum++;
+            if (temp<0){ response = -1; await feedbackEarly();} // early.
+            else if(temp===MS_SHOW_TARGET){response=0; await feedbackLate();} // late(didn't press)
+            else {response=1;}
+            results.push({1:1123, 2:1, 3:1, 4:trialNum,5:'5', 6:'6', 7:1, 8:0, 9:response,10: temp, 11:36});
+        }
+    }
+    console.log("results", results);
+    // exportXL(results);
+    return results;
+}
+
+
+async function runRhythmTask3() {
+    trialNum = 0;
+
+    let results = [];
+    let response = -1;
+    while (trialNum<rythmTrialsNum){
+        await waitMS(MS_BETWEEN_TRIALS);
+        // setupRhythm();
+        setupTrial(ISI.slice(0,3), ISI[3], ISI[4] );
+        let temp = await timeReaction(ISI[4], MS_SHOW_TARGET);
+        hideNow(squareElement);
+        console.log("relative reaction: ", temp);
+        if (temp !== null){
+            trialNum++;
+            if (temp<0){ response = -1; await feedbackEarly();} // early.
+            else if(temp===MS_SHOW_TARGET){response=0; await feedbackLate();} // late(didn't press)
+            else {response=1;}
+            results.push({1:1123, 2:1, 3:1, 4:trialNum,5:'5', 6:'6', 7:1, 8:0, 9:response,10: temp, 11:36});
+        }
+    }
+    console.log("results", results);
+    // exportXL(results);
+    return results;
+}
+
+
+function setupTrial(reds, white, target) {
+    hideNow(squareElement);
+    console.log("starting trial..");
+    let color = '#ff0000'; //RED
+    reds.forEach(timing => timers.push(setTimeout(showStimuli, timing, squareElement, MS_SHOW_CUE, color)));
+    color = '#ffffff'; //white
+    timers.push(setTimeout(showStimuli, white, squareElement, MS_SHOW_CUE, color));
+    timers.push(setTimeout(showTarget, target));
+    expectedTargetTime = getElapsedMS() + target;
+}
+
+
 function setupRhythm() {
     targetShownTS = getElapsedMS(); // temporarily, for timing waiting.
     hideNow(squareElement);
@@ -94,30 +160,33 @@ function setupRhythm() {
     timers.push(setTimeout(showTarget, ISI[4]));
     expectedTargetTime = getElapsedMS() + ISI[4];
 
-    timers.push(setTimeout(feedbackLate , ISI[4]+MS_SHOW_TARGET));
+    // timers.push(setTimeout(feedbackLate , ISI[4]+MS_SHOW_TARGET));
 
 }
 
-function readKey() {
+/**
+ * Waits for key press , or till stimuli should finish being shown.
+ * @param MSTillStimuli MS till stimuli will be shown
+ * @param MSStimuliShown - MS to wait for user to react to stimuli.
+ * @returns {Promise<int>} time relative to stimuli onset.
+ */
+function timeReaction(MSTillStimuli, MSStimuliShown) {
     return new Promise(resolve => {
+
+        setTimeout(() => {resolve(MSStimuliShown);}, MSTillStimuli+MSStimuliShown); // if no press, return.
+
         window.addEventListener('keydown', ev => {
             if (ev.code === 'Space') {
                 console.log('Space pressed')
             }
-            // if not add event again..
-            resolve(5);
-            } , {once:true}); // remove after press
+            resetState(); // don't show late msg..
+            resolve(getMSRelativeToTarget());
+        } , {once:true}); // remove after press
     });
 }
 function handleKeydown(resolve){
 
 }
-
-document.addEventListener('keyup', event => {
-    if (event.code === 'Space') {
-        console.log('Space pressed')
-    }
-})
 
 function singleRhythmTrial2(){
     return new Promise(resolve => {setTimeout(()=> {
@@ -203,10 +272,11 @@ function resetState(){
 //     trialNum++;
 // }
 
-function feedbackNoTrial(){
+function feedbackEarly(){
     resetState();
     feedbackElement.src = EARLY_SRC;
     showMS(feedbackElement, MS_SHOW_FEEDBACK);
+    return waitMS(MS_SHOW_FEEDBACK);
     // setTimeout(doNextTrial, MS_SHOW_FEEDBACK, true);
 }
 function feedbackNoTarget(){
@@ -215,6 +285,8 @@ function feedbackNoTarget(){
     showMS(feedbackElement, MS_SHOW_FEEDBACK);
     // setTimeout(doNextTrial, MS_SHOW_FEEDBACK);
 }
+
+
 function feedbackLate(){
     resetState();
     resultValid = true;
@@ -222,6 +294,7 @@ function feedbackLate(){
     result = MS_SHOW_TARGET;
     feedbackElement.src = NO_RESPONSE_SRC;
     showMS(feedbackElement, MS_SHOW_FEEDBACK);
+    return waitMS(MS_SHOW_FEEDBACK);
     // setTimeout(doNextTrial, MS_SHOW_FEEDBACK);
 }
 
@@ -233,17 +306,13 @@ function clearTimers(){
 
 //  shows stimuli if trial not aborted:
 function showStimuli(object, MS, color){
-    // if (state!== TARGET_READY){return;} // user pressed space.
     showMS(object, MS, color);
-
 }
 
 function showTarget(){
-    if (state!==TARGET_EARLY){return;} // user pressed space.
-    state=TARGET_READY;
     targetShownTS = getElapsedMS();
-    // squareElement.style.background = TARGET_COLOR;
-    // squareElement.style.display = 'block';
+    console.log("expected minus actual", expectedTargetTime, targetShownTS, expectedTargetTime-targetShownTS);
+    expectedTargetTime = getElapsedMS();
     showMS(squareElement, MS_SHOW_TARGET, TARGET_COLOR);
 }
 
@@ -277,38 +346,51 @@ function shuffleArray(array) {
 // squareElement.setAttribute('background', color);
 // squareElement.style.background = '#ff0000';
 
-document.onkeydown = function (ev) {
-    if(ev.keyCode === 32 || ev.key===' ' ){
-        // console.log("space bar pressed", getElapsedMS());
-        let cresult = getElapsedMS() - targetShownTS;
-        switch(state) {
-            case TARGET_READY:  // saw target
-                resetState();
-                result = cresult; //record result
-                resultValid = true;
-                console.log("see you!!", result);
-                hideNow(squareElement);
-                // doNextTrial();
-                break;
-            case TARGET_EARLY:
-                console.log("WRONG  minus score?!!", cresult);
-                resultValid = true;
-                targetShownTS = getElapsedMS(); // temporarily, for timing waiting.
-                result = getMSRelativeToTarget();
-                console.log("Early: ", result);
-                feedbackNoTarget();
-                break;
-            case TARGET_UNDEFINED:
-                console.log("Too early!!", cresult);
-                feedbackNoTrial();
-                break;
-            case INSTRUCTIONS:
-                console.log(" next instructions!!", cresult);
-                break;
-        }
+// document.onkeydown = function (ev) {
+//     if(ev.keyCode === 32 || ev.key===' ' ){
+//         // console.log("space bar pressed", getElapsedMS());
+//         let cresult = getElapsedMS() - targetShownTS;
+//         switch(state) {
+//             case TARGET_READY:  // saw target
+//                 resetState();
+//                 result = cresult; //record result
+//                 resultValid = true;
+//                 console.log("see you!!", result);
+//                 hideNow(squareElement);
+//                 // doNextTrial();
+//                 break;
+//             case TARGET_EARLY:
+//                 console.log("WRONG  minus score?!!", cresult);
+//                 resultValid = true;
+//                 targetShownTS = getElapsedMS(); // temporarily, for timing waiting.
+//                 result = getMSRelativeToTarget();
+//                 console.log("Early: ", result);
+//                 feedbackNoTarget();
+//                 break;
+//             case TARGET_UNDEFINED:
+//                 console.log("Too early!!", cresult);
+//                 feedbackEarly();
+//                 break;
+//             case INSTRUCTIONS:
+//                 console.log(" next instructions!!", cresult);
+//                 break;
+//         }
+//
+//     }
+// };
 
-    }
-};
+
+/**
+ * like sleep(). pauses calling function for 'MS' MS..
+ * @param MS
+ * @returns {Promise<any>}
+ */
+function waitMS(MS) {
+    return new Promise(resolve => {
+        setTimeout(() => {resolve('resolved');
+        }, MS);
+    });
+}
 
 
 function resolveAfter2Seconds() {
