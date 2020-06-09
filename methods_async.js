@@ -17,9 +17,76 @@
 
 "use strict";
 
-var startTime = new Date().getTime();
-let expectedTargetTime = -1;
+let name = "name"; //TODO get name.
+let userNum = "name"; //TODO get userNum.
 
+let output=[];
+const TrialType = Object.freeze({
+    Interval:   Symbol("interval"),
+    Single:  Symbol("single"),
+    Random: Symbol("random")
+});
+class Trial{
+    constructor(reds, white, target, type, long, showTarget=true){
+        this.reds = reds;
+        this.white = white;
+        this .target = target;
+        this.type = type;
+        this.showTarget = showTarget;
+        this.showTargetVal = showTarget?0:2;
+        this.longVal = long?2:1;
+        let val = 0;
+        if (type===TrialType.Interval) val = 1;
+        else if (type===TrialType.Single) val = 2;
+        else val = 3;
+        this.trialTypeVal = val;
+    }
+}
+
+function getRandomRatioArray(size , factor){
+    let bucket = [];
+    let result = [];
+
+    for (let i=0;i<size;i++) {
+        if (i%factor===0) bucket.push(2);
+        else bucket.push(0);
+    }
+
+    for (let i=0;i<size;i++) {
+        let randomIndex = Math.floor(Math.random()*bucket.length);
+        result.push(bucket.splice(randomIndex, 1)[0]);
+    }
+    return result;
+}
+
+async function runRhythmBlock(blockLength, blockNum, dontShowTargetFactor){
+
+    let showTarget = getRandomRatioArray(blockLength, dontShowTargetFactor);
+    let trial = new Trial([],1,1,TrialType.Interval, true); //dummy
+    let trialNum = 0;
+    let results = [];
+
+    while (trialNum<blockLength){
+        trial = createRhythmTrial(trialNum%2===0, showTarget[trialNum]===0); //TODO: when long, when short?? is long 900+100...
+        let reaction  = await runTrial(trial.reds, trial.white, trial.target, trial.showTarget);
+        if (reaction[0] !== null){
+            trialNum++;
+            results.push({1:userNum, 2:blockNum, 3:trial.trialTypeVal, 4:trialNum, 5:'5', 6:'6', 7:trial.longVal, 8:trial.showTargetVal, 9:reaction[1],10: reaction[0], 11:36});
+        }
+    }
+    console.log("results", results);
+    exportXL(results);
+    return results;
+}
+
+function createRhythmTrial(long, showTarget){
+    if (long) return new Trial([900,1900,2900],3900,4900,TrialType.Interval, long, showTarget);
+    else return new Trial([600,1300,2000],2700,3400,TrialType.Interval, long, showTarget);
+}
+
+
+let startTime = new Date().getTime();
+let expectedTargetTime = -1;
 console.log(startTime);
 let squareElement=document.getElementById('square');
 let  feedbackElement=document.getElementById('feedback');
@@ -56,7 +123,11 @@ let resultValid = false;
 let rythmTrialsNum = 6;
 // res = runRhythmTask2();
 // let res = runRhythmTask3();
-let res = runAnyTask([600,1300,2000],2700,3400, 6 );
+// let res = runAnyTask([600,1300,2000],2700,3400, 6 );
+
+window.addEventListener("beforeunload", closing, false);
+output = runRhythmBlock(8, 3, 4);
+
 
 async function runRhythmTask2() {
     trialNum = 0;
@@ -81,23 +152,31 @@ async function runRhythmTask2() {
 }
 
 
+async function runTrial(reds, white, target, showTarget){
+    let response = -1;
+    await waitMS(MS_BETWEEN_TRIALS);
+    setupTrial(reds, white, target, showTarget);
+    let reaction = await timeReaction(target, MS_SHOW_TARGET);
+    hideNow(squareElement);
+    console.log("relative reaction: ", reaction);
+    if (reaction !== null){
+        if (reaction<0){ response = -1; await feedbackEarly();} // early.
+        else if(reaction===MS_SHOW_TARGET){response=0; if (showTarget)await feedbackLate();} // late(didn't press)
+        else {response=1;}
+    }
+    return [reaction, response];
+}
 
 async function runAnyTask(reds, white, target, numTrials) {
     trialNum = 0;
     let results = [];
     let response = -1;
     while (trialNum<numTrials){
-        await waitMS(MS_BETWEEN_TRIALS);
-        setupTrial(reds, white, target);
-        let temp = await timeReaction(target, MS_SHOW_TARGET);
-        hideNow(squareElement);
-        console.log("relative reaction: ", temp);
-        if (temp !== null){
+        let reaction  = await runTrial(reds, white, target, showTarget);
+        if (reaction[0] !== null){
             trialNum++;
-            if (temp<0){ response = -1; await feedbackEarly();} // early.
-            else if(temp===MS_SHOW_TARGET){response=0; await feedbackLate();} // late(didn't press)
-            else {response=1;}
-            results.push({1:1123, 2:1, 3:1, 4:trialNum,5:'5', 6:'6', 7:1, 8:0, 9:response,10: temp, 11:36});
+            response = reaction[1];
+            results.push({1:1123, 2:1, 3:1, 4:trialNum,5:'5', 6:'6', 7:1, 8:0, 9:response,10: reaction[0], 11:36});
         }
     }
     console.log("results", results);
@@ -132,14 +211,14 @@ async function runRhythmTask3() {
 }
 
 
-function setupTrial(reds, white, target) {
+function setupTrial(reds, white, target, showTargetSquare=true) {
     hideNow(squareElement);
     console.log("starting trial..");
     let color = '#ff0000'; //RED
     reds.forEach(timing => timers.push(setTimeout(showStimuli, timing, squareElement, MS_SHOW_CUE, color)));
     color = '#ffffff'; //white
     timers.push(setTimeout(showStimuli, white, squareElement, MS_SHOW_CUE, color));
-    timers.push(setTimeout(showTarget, target));
+    timers.push(setTimeout(showTarget, target, showTargetSquare));
     expectedTargetTime = getElapsedMS() + target;
 }
 
@@ -309,11 +388,11 @@ function showStimuli(object, MS, color){
     showMS(object, MS, color);
 }
 
-function showTarget(){
+function showTarget(show=true){
     targetShownTS = getElapsedMS();
     console.log("expected minus actual", expectedTargetTime, targetShownTS, expectedTargetTime-targetShownTS);
     expectedTargetTime = getElapsedMS();
-    showMS(squareElement, MS_SHOW_TARGET, TARGET_COLOR);
+    if (show) showMS(squareElement, MS_SHOW_TARGET, TARGET_COLOR);
 }
 
 
@@ -405,4 +484,12 @@ async function asyncCall() {
     const result = await resolveAfter2Seconds();
     console.log(result);
     // expected output: 'resolved'
+}
+
+function closing(ev) { // doesnt work yet.
+    //TODO save data to excel:
+    console.log("closing..");
+    exportXL(output);
+
+
 }
