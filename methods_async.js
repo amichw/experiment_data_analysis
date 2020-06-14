@@ -17,13 +17,14 @@
 
 let name = "name"; //TODO get name.
 let userNum =  Math.floor(Math.random()*999); //TODO get userNum.
-const BLOCK_LENGTH = 5;
+const BLOCK_LENGTH = 2;
 let output=[];
+output.push({'x':'ready', 'y':'OR Not'});
 
 
 const TrialType = Object.freeze({
     Rhythmic:   Symbol("rhythmic"),
-    Single:  Symbol("single"),
+    Interval:  Symbol("interval"),
     Random: Symbol("random")
 });
 
@@ -40,7 +41,7 @@ class Trial{
         this.col11 = long?54:36;
         let val = 0;
         if (type===TrialType.Rhythmic) val = 1;
-        else if (type===TrialType.Single) val = 2;
+        else if (type===TrialType.Interval) val = 2;
         else val = 3;
         this.trialTypeVal = val;
     }
@@ -121,7 +122,7 @@ let rythmTrialsNum = 6;
 // let res = runAnyTask([600,1300,2000],2700,3400, 6 );
 
 
-// window.addEventListener("beforeunload", closing, false);
+window.addEventListener("beforeunload", closing, false);
 
 
 let prom = runExperiment();
@@ -182,9 +183,7 @@ async function runSingleIntervalBlock(blockLength, outputObj){
 
 
 /**
- * creates a single trial object of type Rhythmic.
- * @param long true for long intervals (9000)
- * @param showTarget true to show target
+ * creates a single trial object of type Interval.
  * @returns {Trial} trial object.
  */
 function createSingleIntervalTrial(){
@@ -200,7 +199,7 @@ function createSingleIntervalTrial(){
     intervals.push(initial+cue+randomOffset);
     intervals.push(initial+cue+randomOffset+cue);
 
-    return new Trial(intervals.slice(0,2),intervals[2], intervals[3],TrialType.Random);
+    return new Trial(intervals.slice(0,2),intervals[2], intervals[3],TrialType.Interval);
 }
 
 
@@ -221,9 +220,8 @@ async function runRandomBlock(blockLength, outputObj){
 
 
 /**
- * creates a single trial object of type Rhythmic.
- * @param long true for long intervals (9000)
- * @param showTarget true to show target
+ * creates a single trial object of type Random.
+
  * @returns {Trial} trial object.
  */
 function createRandomTrial(){
@@ -339,7 +337,8 @@ async function runTrial(reds, white, target, showTarget){
     if (reaction !== null){
         if (reaction<0){ response = -1; await feedbackEarly();} // early.
         else if(reaction===MS_SHOW_TARGET){response=0; if (showTarget)await feedbackLate();} // late(didn't press)
-        else {response=1;}
+        else { response=1;  if (!showTarget){ await feedbackNoTarget();}  // pressed even though no target:
+        }
     }
     return [reaction, response];
 }
@@ -562,6 +561,7 @@ function feedbackNoTarget(){
     resetState();
     feedbackElement.src = ONLY_STIMULI_SRC;
     showMS(feedbackElement, MS_SHOW_FEEDBACK);
+    return waitMS(MS_SHOW_FEEDBACK);
     // setTimeout(doNextTrial, MS_SHOW_FEEDBACK);
 }
 
@@ -569,7 +569,7 @@ function feedbackNoTarget(){
 function feedbackLate(){
     resetState();
     resultValid = true;
-    targetShownTS = getElapsedMS(); // temporarily, for timing waiting.
+    // targetShownTS = getElapsedMS(); // temporarily, for timing waiting.
     result = MS_SHOW_TARGET;
     feedbackElement.src = NO_RESPONSE_SRC;
     showMS(feedbackElement, MS_SHOW_FEEDBACK);
@@ -686,10 +686,15 @@ async function asyncCall() {
     // expected output: 'resolved'
 }
 
-function closing(ev) { // doesnt work yet.
+/**
+ * To save current data, in case of window close
+ * @param ev
+ */
+function closing(ev) {
     //TODO save data to excel:
+    // alert('REally???!!');
     console.log("closing..");
-    exportXL(output);
+    // exportXL(output);
 
 
 }
