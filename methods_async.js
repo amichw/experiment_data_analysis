@@ -17,7 +17,7 @@
 "use strict";
 
 let name = "name"; //TODO get name.
-let userNum = "name"; //TODO get userNum.
+let userNum = 123; //TODO get userNum.
 
 let output=[];
 const TrialType = Object.freeze({
@@ -26,7 +26,7 @@ const TrialType = Object.freeze({
     Random: Symbol("random")
 });
 class Trial{
-    constructor(reds, white, target, type, long, showTarget=true){
+    constructor(reds, white, target, type, long=false, showTarget=true){
         this.reds = reds;
         this.white = white;
         this .target = target;
@@ -65,10 +65,56 @@ class OutputOrganizer {
 async function runExperiment(){
     let outputObj = new OutputOrganizer(123);
     outputObj.startingBlock();
-    output = await runRhythmBlock(8, 3, 4, outputObj);
+    output = await runRandomBlock(5, outputObj);
+    outputObj.startingBlock();
+    output = await runRhythmBlock(8, 0, outputObj);
+    outputObj.startingBlock();
+    output = await runRhythmBlock(8, 4, outputObj);
+
     console.log("results", outputObj.results);
     exportXL(outputObj.results);
 }
+
+
+
+async function runRandomBlock(blockLength, outputObj){
+
+    let trial = null;
+    let trialNum = 0;
+    while (trialNum<blockLength){
+        trial = createRandomTrial();
+        let reaction  = await runTrial(trial.reds, trial.white, trial.target, trial.showTarget);
+        if (reaction[0] !== null){
+            trialNum++;
+            outputObj.updateOutput(trial, reaction[0], reaction[1]);
+        }
+    }
+    return outputObj;
+}
+
+
+
+/**
+ * creates a single trial object of type Rhythmic.
+ * @param long true for long intervals (9000)
+ * @param showTarget true to show target
+ * @returns {Trial} trial object.
+ */
+function createRandomTrial(){
+    let intervals = [];
+    let ISIVals = [0.4, 0.5, 0.6, 0.7, 0.8, 0.6, 0.75, 0.9, 1.05, 1.2];
+    let offset = 0;
+    // let ISIVals = [400, 500, 600, 700, 800, 600, 750, 900, 1050, 1200];
+    for (let i=0; i < 5; i++){
+        let randomIndex = Math.floor(Math.random()*ISIVals.length);
+        offset += ISIVals[randomIndex]*1000;
+        intervals.push(offset);
+        // intervals.push(ISIVals[randomIndex]);
+    }
+
+    return new Trial(intervals.slice(0,3),intervals[3], intervals[4],TrialType.Random);
+}
+
 
 
 /**
@@ -79,9 +125,10 @@ async function runExperiment(){
  * @returns {Array} shuffled array
  */
 function getRandomRatioArray(size , factor){
+    if (factor<1)return Array(size).fill(0);
+
     let bucket = [];
     let result = [];
-
     for (let i=0;i<size;i++) {
         if (i%factor===0) bucket.push(2);
         else bucket.push(0);
@@ -94,7 +141,8 @@ function getRandomRatioArray(size , factor){
     return result;
 }
 
-async function runRhythmBlock(blockLength, blockNum, dontShowTargetFactor, outputObj){
+
+async function runRhythmBlock(blockLength, dontShowTargetFactor, outputObj){
 
     let showTarget = getRandomRatioArray(blockLength, dontShowTargetFactor);
     let trial = null;
@@ -116,6 +164,7 @@ async function runRhythmBlock(blockLength, blockNum, dontShowTargetFactor, outpu
     return outputObj;
 }
 
+
 /**
  * creates a single trial object of type Rhythmic.
  * @param long true for long intervals (9000)
@@ -126,6 +175,9 @@ function createRhythmTrial(long, showTarget){
     if (long) return new Trial([900,1900,2900],3900,4900,TrialType.Rhythmic, long, showTarget);
     else return new Trial([600,1300,2000],2700,3400,TrialType.Rhythmic, long, showTarget);
 }
+
+
+
 
 
 let startTime = new Date().getTime();
