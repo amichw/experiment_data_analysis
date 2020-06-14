@@ -1,10 +1,10 @@
 
 
-//TODO: rhythm : 75% target, 25% no target
-//TODO: random : same but instead of 600MS between stimuli - random
-//TODO: pairs : red-red, then white-green. intrapair-random 600/900 MS. interpair: random
+// rhythm : 75% target, 25% no target
+// random : same but instead of 600MS between stimuli - random
+// pairs : red-red, then white-green. intrapair-random 600/900 MS. interpair: random
 
-//
+//  COPIED FROM MATLAB:
 // params.Time.cue=[0.6; 0.9]; % target intervals
 // params.Time.ISI=[1.3 1.4 1.5 1.6 1.7; 1.95 2.1 2.25 2.4 2.55]; %inter-pair interval in interval condition
 // params.Time.tarIntervalRand=[0.4 0.5 0.6 0.7 0.8; 0.6 0.75 0.9 1.05 1.2]; %target time randomization in random condition
@@ -16,14 +16,18 @@
 "use strict";
 
 let name = "name"; //TODO get name.
-let userNum = 123; //TODO get userNum.
-
+let userNum =  Math.floor(Math.random()*999); //TODO get userNum.
+const BLOCK_LENGTH = 5;
 let output=[];
+
+
 const TrialType = Object.freeze({
     Rhythmic:   Symbol("rhythmic"),
     Single:  Symbol("single"),
     Random: Symbol("random")
 });
+
+
 class Trial{
     constructor(reds, white, target, type, long=false, showTarget=true){
         this.reds = reds;
@@ -61,16 +65,99 @@ class OutputOrganizer {
 }
 
 
+
+
+
+let startTime = new Date().getTime();
+let expectedTargetTime = -1;
+console.log(startTime);
+let squareElement=document.getElementById('square');
+let  feedbackElement=document.getElementById('feedback');
+
+const EARLY_SRC = 'pics/tooearly.jpg';
+const ONLY_STIMULI_SRC = 'pics/resptarget.jpg';
+const NO_RESPONSE_SRC = 'pics/noresp.jpg';
+const START_SRC = 'pics/menu.jpg';
+const BLOCK_BEGIN_SRC = 'pics/begblock.jpg';
+const RHYTHM_TARGET_SRC = 'pics/rhythm_target.jpg';
+const RHYTHM_SRC = 'pics/rhythm.jpg';
+const RHYTHM_HELP_SRC = 'pics/srhythm.jpg';
+// const INTERVAL_SRC = 'pics/interval.jpg';
+const INTERVAL_TARGET_SRC = 'pics/interval_target.jpg';
+const INTERVAL_HELP_SRC = 'pics/sinterval.jpg';
+const RANDOM_TARGET_SRC = 'pics/random_target.jpg';
+const RANDOM_HELP_SRC = 'pics/srandom.jpg';
+const END_SRC = 'pics/end.jpg';
+
+const MS_BETWEEN_TRIALS = 1000;
+const MS_SHOW_TARGET = 3000;
+const MS_SHOW_CUE = 100;
+const MS_SHOW_FEEDBACK = 3000;
+const TARGET_COLOR = '#00ff00';
+const TARGET_READY = 1;
+const TARGET_EARLY = 2;
+const TARGET_UNDEFINED = 3;
+const INSTRUCTIONS = 4;
+var state = INSTRUCTIONS;
+var targetShownTS = 0;
+// var ISI = [1300,1400,1500,1600,1700,1950,2100,2250,2400,2550];
+var ISI = [600,1300,2000,2700,3400];
+// var rhythmTask = [singleRhythmTrial, singleRhythmTrial, singleRhythmTrial, singleRhythmTrial, singleRhythmTrial];
+// var rhythm75Task = [rhythm75Trial, rhythm75Trial, rhythm75Trial, rhythm75Trial, rhythm75Trial];
+var task75 = [1,1,1,0];
+var timers = [];
+var currentTaskArray = []
+var trialNum = 0;
+
+
+// ===================  =======  async =====       ===========
+
+let asyncState = -1;
+let result = -1;
+let resultValid = false;
+let rythmTrialsNum = 6;
+// res = runRhythmTask2();
+// let res = runRhythmTask3();
+// let res = runAnyTask([600,1300,2000],2700,3400, 6 );
+
+
+// window.addEventListener("beforeunload", closing, false);
+
+
+let prom = runExperiment();
+async function showInstruction(instructionURL) {
+
+    feedbackElement.src = instructionURL;
+    feedbackElement.style.display = 'block';
+    await waitForSpaceKey();
+    hideNow(feedbackElement);
+}
+
 async function runExperiment(){
-    let outputObj = new OutputOrganizer(123);
+
+    await showInstruction(START_SRC);
+    let outputObj = new OutputOrganizer(userNum);
     outputObj.startingBlock();
-    output = await runSingleIntervalBlock(5, outputObj);
+
+    await showInstruction(INTERVAL_TARGET_SRC);
+    await showInstruction(INTERVAL_HELP_SRC);
+    await showInstruction(BLOCK_BEGIN_SRC);
+    output = await runSingleIntervalBlock(BLOCK_LENGTH, outputObj);
     outputObj.startingBlock();
-    output = await runRandomBlock(5, outputObj);
+    await showInstruction(RANDOM_TARGET_SRC);
+    await showInstruction(RANDOM_HELP_SRC);
+    await showInstruction(BLOCK_BEGIN_SRC);
+    output = await runRandomBlock(BLOCK_LENGTH, outputObj);
     outputObj.startingBlock();
-    output = await runRhythmBlock(8, 0, outputObj);
+    await showInstruction(RHYTHM_TARGET_SRC);
+    await showInstruction(RHYTHM_HELP_SRC);
+    await showInstruction(BLOCK_BEGIN_SRC);
+    output = await runRhythmBlock(BLOCK_LENGTH, 0, outputObj);
     outputObj.startingBlock();
-    output = await runRhythmBlock(8, 4, outputObj);
+    await showInstruction(RHYTHM_SRC);
+    await showInstruction(RHYTHM_HELP_SRC);
+    await showInstruction(BLOCK_BEGIN_SRC);
+    output = await runRhythmBlock(BLOCK_LENGTH, 4, outputObj);
 
     console.log("results", outputObj.results);
     exportXL(outputObj.results);
@@ -215,52 +302,7 @@ function createRhythmTrial(long, showTarget){
 }
 
 
-
-
-
-let startTime = new Date().getTime();
-let expectedTargetTime = -1;
-console.log(startTime);
-let squareElement=document.getElementById('square');
-let  feedbackElement=document.getElementById('feedback');
-
-const EARLY_SRC = 'Additional%20Instructions/tooearly.jpg';
-const ONLY_STIMULI_SRC = 'Additional%20Instructions/resptarget.jpg';
-const NO_RESPONSE_SRC = 'Additional%20Instructions/noresp.jpg';
-const MS_BETWEEN_TRIALS = 1000;
-const MS_SHOW_TARGET = 3000;
-const MS_SHOW_CUE = 100;
-const MS_SHOW_FEEDBACK = 3000;
-const TARGET_COLOR = '#00ff00';
-const TARGET_READY = 1;
-const TARGET_EARLY = 2;
-const TARGET_UNDEFINED = 3;
-const INSTRUCTIONS = 4;
-var state = INSTRUCTIONS;
-var targetShownTS = 0;
-// var ISI = [1300,1400,1500,1600,1700,1950,2100,2250,2400,2550];
-var ISI = [600,1300,2000,2700,3400];
-// var rhythmTask = [singleRhythmTrial, singleRhythmTrial, singleRhythmTrial, singleRhythmTrial, singleRhythmTrial];
-// var rhythm75Task = [rhythm75Trial, rhythm75Trial, rhythm75Trial, rhythm75Trial, rhythm75Trial];
-var task75 = [1,1,1,0];
-var timers = [];
-var currentTaskArray = []
-var trialNum = 0;
-
-
-// ===================  =======  async =====       ===========
-
-let asyncState = -1;
-let result = -1;
-let resultValid = false;
-let rythmTrialsNum = 6;
-// res = runRhythmTask2();
-// let res = runRhythmTask3();
-// let res = runAnyTask([600,1300,2000],2700,3400, 6 );
-
-
-window.addEventListener("beforeunload", closing, false);
-let prom = runExperiment();
+// ===========   =====     =========   ======   ==========   =======
 
 
 
@@ -378,16 +420,39 @@ function setupRhythm() {
 
 }
 
+
+function waitForSpaceHelper(resolve){
+
+    window.addEventListener('keydown', ev => {
+        if (ev.code === 'Space') {
+            console.log('Space pressed, instructions')
+            resolve(1);
+        }
+        else{
+            console.log('Different Key pressed, instructions')
+
+            waitForSpaceHelper(resolve);}
+    } , {once:true}); // remove after press
+}
+function waitForSpaceKey(){
+    return new Promise(resolve => {
+        waitForSpaceHelper(resolve);
+    });
+}
+
 /**
  * Waits for key press , or till stimuli should finish being shown.
+ * Returns timing of keyPress, relative to stimuli event (can be a negative number.)
+ *  (Can also be used to show instruction till key pressed, or for 'MSTillStimuli + MSShowStimuli' time.
+ *  doesn't show things, only waits and records time.)
  * @param MSTillStimuli MS till stimuli will be shown
- * @param MSStimuliShown - MS to wait for user to react to stimuli.
+ * @param MSShowStimuli - MS to wait for user to react to stimuli.
  * @returns {Promise<int>} time relative to stimuli onset.
  */
-function timeReaction(MSTillStimuli, MSStimuliShown) {
+function timeReaction(MSTillStimuli, MSShowStimuli) {
     return new Promise(resolve => {
 
-        setTimeout(() => {resolve(MSStimuliShown);}, MSTillStimuli+MSStimuliShown); // if no press, return.
+        setTimeout(() => {resolve(MSShowStimuli);}, MSTillStimuli+MSShowStimuli); // if no press, return.
 
         window.addEventListener('keydown', ev => {
             if (ev.code === 'Space') {
