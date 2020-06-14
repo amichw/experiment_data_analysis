@@ -1,6 +1,5 @@
 
 // TODO: runAnyTask to : runAntTrial which will be wrapped in runBlock(type??)
-//   add bool:showTarget for non-target. if not so don't show lateFeedback.. and target..
 
 //TODO: rhythm : 75% target, 25% no target
 //TODO: random : same but instead of 600MS between stimuli - random
@@ -22,7 +21,7 @@ let userNum = "name"; //TODO get userNum.
 
 let output=[];
 const TrialType = Object.freeze({
-    Interval:   Symbol("interval"),
+    Rhythmic:   Symbol("rhythmic"),
     Single:  Symbol("single"),
     Random: Symbol("random")
 });
@@ -35,14 +34,50 @@ class Trial{
         this.showTarget = showTarget;
         this.showTargetVal = showTarget?0:2;
         this.longVal = long?2:1;
+        this.col11 = long?54:36;
         let val = 0;
-        if (type===TrialType.Interval) val = 1;
+        if (type===TrialType.Rhythmic) val = 1;
         else if (type===TrialType.Single) val = 2;
         else val = 3;
         this.trialTypeVal = val;
     }
 }
 
+class OutputOrganizer {
+    constructor(userNum){
+        this.results = [];
+        this.trialNum = 0;
+        this.blockNum = 0;
+        this.userNum = userNum;
+    }
+    startingBlock(){
+        this.blockNum++;
+        this.trialNum = 0;
+    }
+    updateOutput(trial, reactionTime, reactionCode){
+        this.trialNum++;
+        this.results.push({1:this.userNum, 2:this.blockNum, 3:trial.trialTypeVal, 4:this.trialNum, 5:'5', 6:'6',
+            7:trial.longVal, 8:trial.showTargetVal, 9:reactionCode,10: reactionTime, 11:trial.col11});
+    }
+}
+
+
+async function runExperiment(){
+    let outputObj = new OutputOrganizer(123);
+    outputObj.startingBlock();
+    output = await runRhythmBlock(8, 3, 4, outputObj);
+    console.log("results", outputObj.results);
+    exportXL(outputObj.results);
+}
+
+
+/**
+ * retun array of length 'size' full of zeros. with '2' once every 'factor'. shuffled randomly.
+ * so for an array of length 20, with a quarter '2', do: getRandomRatioArray(20, 4);
+ * @param size length of array
+ * @param factor ratio: (1/factor)
+ * @returns {Array} shuffled array
+ */
 function getRandomRatioArray(size , factor){
     let bucket = [];
     let result = [];
@@ -59,29 +94,37 @@ function getRandomRatioArray(size , factor){
     return result;
 }
 
-async function runRhythmBlock(blockLength, blockNum, dontShowTargetFactor){
+async function runRhythmBlock(blockLength, blockNum, dontShowTargetFactor, outputObj){
 
     let showTarget = getRandomRatioArray(blockLength, dontShowTargetFactor);
-    let trial = new Trial([],1,1,TrialType.Interval, true); //dummy
+    let trial = null;
     let trialNum = 0;
-    let results = [];
+    // let results = [];
 
     while (trialNum<blockLength){
         trial = createRhythmTrial(trialNum%2===0, showTarget[trialNum]===0); //TODO: when long, when short?? is long 900+100...
         let reaction  = await runTrial(trial.reds, trial.white, trial.target, trial.showTarget);
         if (reaction[0] !== null){
             trialNum++;
-            results.push({1:userNum, 2:blockNum, 3:trial.trialTypeVal, 4:trialNum, 5:'5', 6:'6', 7:trial.longVal, 8:trial.showTargetVal, 9:reaction[1],10: reaction[0], 11:36});
+            outputObj.updateOutput(trial, reaction[0], reaction[1]);
+            // results.push({1:userNum, 2:blockNum, 3:trial.trialTypeVal, 4:trialNum, 5:'5', 6:'6', 7:trial.longVal, 8:trial.showTargetVal, 9:reaction[1],10: reaction[0], 11:36});
         }
     }
-    console.log("results", results);
-    exportXL(results);
-    return results;
+    // console.log("results", outputObj.);
+    // exportXL(results);
+    // return results;
+    return outputObj;
 }
 
+/**
+ * creates a single trial object of type Rhythmic.
+ * @param long true for long intervals (9000)
+ * @param showTarget true to show target
+ * @returns {Trial} trial object.
+ */
 function createRhythmTrial(long, showTarget){
-    if (long) return new Trial([900,1900,2900],3900,4900,TrialType.Interval, long, showTarget);
-    else return new Trial([600,1300,2000],2700,3400,TrialType.Interval, long, showTarget);
+    if (long) return new Trial([900,1900,2900],3900,4900,TrialType.Rhythmic, long, showTarget);
+    else return new Trial([600,1300,2000],2700,3400,TrialType.Rhythmic, long, showTarget);
 }
 
 
@@ -125,8 +168,10 @@ let rythmTrialsNum = 6;
 // let res = runRhythmTask3();
 // let res = runAnyTask([600,1300,2000],2700,3400, 6 );
 
+
 window.addEventListener("beforeunload", closing, false);
-output = runRhythmBlock(8, 3, 4);
+let prom = runExperiment();
+
 
 
 async function runRhythmTask2() {
