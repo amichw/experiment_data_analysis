@@ -1,5 +1,4 @@
 
-// TODO: runAnyTask to : runAntTrial which will be wrapped in runBlock(type??)
 
 //TODO: rhythm : 75% target, 25% no target
 //TODO: random : same but instead of 600MS between stimuli - random
@@ -65,6 +64,8 @@ class OutputOrganizer {
 async function runExperiment(){
     let outputObj = new OutputOrganizer(123);
     outputObj.startingBlock();
+    output = await runSingleIntervalBlock(5, outputObj);
+    outputObj.startingBlock();
     output = await runRandomBlock(5, outputObj);
     outputObj.startingBlock();
     output = await runRhythmBlock(8, 0, outputObj);
@@ -75,6 +76,45 @@ async function runExperiment(){
     exportXL(outputObj.results);
 }
 
+
+
+async function runSingleIntervalBlock(blockLength, outputObj){
+
+    let trial = null;
+    let trialNum = 0;
+    while (trialNum<blockLength){
+        trial = createSingleIntervalTrial();
+        let reaction  = await runTrial(trial.reds, trial.white, trial.target, trial.showTarget);
+        if (reaction[0] !== null){
+            trialNum++;
+            outputObj.updateOutput(trial, reaction[0], reaction[1]);
+        }
+    }
+    return outputObj;
+}
+
+
+/**
+ * creates a single trial object of type Rhythmic.
+ * @param long true for long intervals (9000)
+ * @param showTarget true to show target
+ * @returns {Trial} trial object.
+ */
+function createSingleIntervalTrial(){
+    let intervals = [];
+    let randomIndex = Math.floor(Math.random()*2);
+    let cue = [600, 900][randomIndex];
+    let ISIS = [1.3, 1.4, 1.5, 1.6, 1.7, 1.95, 2.1, 2.25, 2.4, 2.55]; //inter-pair interval in interval condition
+    let initial = 500;
+    intervals.push(initial); // first red box.
+    intervals.push(initial+cue); // second red box.
+    randomIndex = Math.floor(Math.random()*ISIS.length);
+    let randomOffset = ISIS[randomIndex]*1000;
+    intervals.push(initial+cue+randomOffset);
+    intervals.push(initial+cue+randomOffset+cue);
+
+    return new Trial(intervals.slice(0,2),intervals[2], intervals[3],TrialType.Random);
+}
 
 
 async function runRandomBlock(blockLength, outputObj){
@@ -91,7 +131,6 @@ async function runRandomBlock(blockLength, outputObj){
     }
     return outputObj;
 }
-
 
 
 /**
@@ -114,7 +153,6 @@ function createRandomTrial(){
 
     return new Trial(intervals.slice(0,3),intervals[3], intervals[4],TrialType.Random);
 }
-
 
 
 /**
