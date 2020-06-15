@@ -13,9 +13,9 @@
 
 "use strict";
 
-let name = "name"; //TODO get name.
-let userNum = Math.floor(Math.random() * 999); //TODO get userNum.
-const BLOCK_LENGTH = 2;
+// let name = "name"; //TODO get name.
+// let userNum = Math.floor(Math.random() * 999); //TODO get userNum.
+const BLOCK_LENGTH = 4;
 
 let output = [];
 
@@ -24,19 +24,19 @@ let expectedTargetTime = -1;
 let squareElement = document.getElementById('square');
 let feedbackElement = document.getElementById('feedback');
 
-const EARLY_SRC = 'pics/tooearly.jpg';
-const ONLY_STIMULI_SRC = 'pics/resptarget.jpg';
-const NO_RESPONSE_SRC = 'pics/noresp.jpg';
-const START_SRC = 'pics/menu.jpg';
-const BLOCK_BEGIN_SRC = 'pics/begblock.jpg';
-const RHYTHM_TARGET_SRC = 'pics/rhythm_target.jpg';
-const RHYTHM_SRC = 'pics/rhythm.jpg';
-const RHYTHM_HELP_SRC = 'pics/srhythm.jpg';
-const INTERVAL_TARGET_SRC = 'pics/interval_target.jpg';
-const INTERVAL_HELP_SRC = 'pics/sinterval.jpg';
-const RANDOM_TARGET_SRC = 'pics/random_target.jpg';
-const RANDOM_HELP_SRC = 'pics/srandom.jpg';
-const END_SRC = 'pics/end.jpg';
+const EARLY_SRC = 'res/tooearly.jpg';
+const ONLY_STIMULI_SRC = 'res/resptarget.jpg';
+const NO_RESPONSE_SRC = 'res/noresp.jpg';
+const PRACTICE_SRC = 'res/menu.jpg';
+const BLOCK_BEGIN_SRC = 'res/begblock.jpg';
+const RHYTHM_TARGET_SRC = 'res/rhythm_target.jpg';
+const RHYTHM_SRC = 'res/rhythm.jpg';
+const RHYTHM_HELP_SRC = 'res/srhythm.jpg';
+const INTERVAL_TARGET_SRC = 'res/interval_target.jpg';
+const INTERVAL_HELP_SRC = 'res/sinterval.jpg';
+const RANDOM_TARGET_SRC = 'res/random_target.jpg';
+const RANDOM_HELP_SRC = 'res/srandom.jpg';
+const END_SRC = 'res/end.jpg';
 
 const MS_BETWEEN_TRIALS = 1000;
 const MS_SHOW_TARGET = 3000;
@@ -50,8 +50,9 @@ let finished = false;
 window.addEventListener("resize", resizeInstructions, false);
 
 
-window.addEventListener("beforeunload", closing, false);
-finished = runExperiment();
+// window.addEventListener("beforeunload", closing, false);
+
+
 
 
 const TrialType = Object.freeze({
@@ -95,12 +96,16 @@ class OutputOrganizer {
     updateOutput(trial, reactionTime, reactionCode) {
         this.trialNum++;
         this.results.push({
-            1: this.userNum, 2: this.blockNum, 3: trial.trialTypeVal, 4: this.trialNum, 5: '5', 6: '6',
-            7: trial.longVal, 8: trial.showTargetVal, 9: reactionCode, 10: reactionTime, 11: trial.col11
+            "1 - user code": this.userNum, '2 - block num': this.blockNum, '3 - trial type': trial.trialTypeVal,
+            '4 - trial num': this.trialNum, 5: '5', 6: '6', '7 - long(2)': trial.longVal,
+            '8 - target shown (0)': trial.showTargetVal, '9 - reaction type': reactionCode,
+            '10 - reaction time': reactionTime, '11 - 54 for long': trial.col11
         });
     }
 }
 
+
+finished = runExperiment(true);
 
 async function showInstruction(instructionURL) {
 
@@ -111,46 +116,72 @@ async function showInstruction(instructionURL) {
 }
 
 
-async function runExperiment() {
+async function runExperiment(twice) {
 
-    resizeInstructions();
     hideNow(squareElement);
-    await showInstruction(START_SRC);
-    let outputObj = new OutputOrganizer(userNum);
-    outputObj.startingBlock();
+    hideNow(feedbackElement);
+    resizeInstructions();
+    await showInstruction(BLOCK_BEGIN_SRC);
 
-    await showInstruction(INTERVAL_TARGET_SRC);
-    await showInstruction(INTERVAL_HELP_SRC);
-    await showInstruction(BLOCK_BEGIN_SRC);
-    output = await runSingleIntervalBlock(BLOCK_LENGTH, outputObj);
-    outputObj.startingBlock();
-    await showInstruction(RANDOM_TARGET_SRC);
-    await showInstruction(RANDOM_HELP_SRC);
-    await showInstruction(BLOCK_BEGIN_SRC);
-    output = await runRandomBlock(BLOCK_LENGTH, outputObj);
-    outputObj.startingBlock();
-    await showInstruction(RHYTHM_TARGET_SRC);
-    await showInstruction(RHYTHM_HELP_SRC);
-    await showInstruction(BLOCK_BEGIN_SRC);
-    output = await runRhythmBlock(BLOCK_LENGTH, 0, outputObj);
-    outputObj.startingBlock();
-    await showInstruction(RHYTHM_SRC);
-    await showInstruction(RHYTHM_HELP_SRC);
-    await showInstruction(BLOCK_BEGIN_SRC);
-    output = await runRhythmBlock(BLOCK_LENGTH, 4, outputObj);
+    let userNum = "";
+    while (userNum===null || userNum===""){ userNum = prompt("Please enter user code", ""); }
+
+    let outputObj = new OutputOrganizer(userNum);
+    let one = [runSingleIntervalBlock, runRandomBlock, runRhythmBlock75];
+    let two = [runSingleIntervalBlock, runRandomBlock, runRhythmBlock75];
+    one = shuffleArray(one);
+    two = shuffleArray(two);
+
+    for(let i=0; i< one.length; i++){
+        outputObj.startingBlock();
+        await one[i](BLOCK_LENGTH, outputObj);
+    }
+
+    for(let i=0; i< one.length; i++){
+        outputObj.startingBlock();
+        await two[i](BLOCK_LENGTH, outputObj);
+    }
+
+
+    twice = confirm("Start second part when ready\n (press cancel to save and end now.)");
+    // 100% target appearance:
+    if (twice){
+
+        one = [runSingleIntervalBlock, runRandomBlock, runRhythmBlock100];
+        two = [runSingleIntervalBlock, runRandomBlock, runRhythmBlock100];
+        one = shuffleArray(one);
+        two = shuffleArray(two);
+
+        for(let i=0; i< one.length; i++){
+            outputObj.startingBlock();
+            await one[i](BLOCK_LENGTH, outputObj);
+        }
+
+        for(let i=0; i< one.length; i++){
+            outputObj.startingBlock();
+            await two[i](BLOCK_LENGTH, outputObj);
+        }
+    }
+
+    await showInstruction(END_SRC);
+
 
     console.log("results", outputObj.results);
-    exportXL(outputObj.results);
+    exportXL(outputObj.results, outputObj.userNum);
     return true;
 }
 
 
 async function runSingleIntervalBlock(blockLength, outputObj) {
-
+    await showInstruction(BLOCK_BEGIN_SRC);
+    await showInstruction(INTERVAL_TARGET_SRC);
+    await showInstruction(INTERVAL_HELP_SRC);
+    await showInstruction(PRACTICE_SRC);
     let trial = null;
     let trialNum = 0;
+    let longOrShort = getRandomRatioArray(blockLength, 2);
     while (trialNum < blockLength) {
-        trial = createSingleIntervalTrial();
+        trial = createSingleIntervalTrial(longOrShort[trialNum] === 0);
         let reaction = await runTrial(trial.reds, trial.white, trial.target, trial.showTarget);
         if (reaction[0] !== null) {
             trialNum++;
@@ -165,29 +196,34 @@ async function runSingleIntervalBlock(blockLength, outputObj) {
  * creates a single trial object of type Interval.
  * @returns {Trial} trial object.
  */
-function createSingleIntervalTrial() {
+function createSingleIntervalTrial(long) {
     let intervals = [];
-    let randomIndex = Math.floor(Math.random() * 2);
-    let cue = [600, 900][randomIndex];
-    let ISIS = [1.3, 1.4, 1.5, 1.6, 1.7, 1.95, 2.1, 2.25, 2.4, 2.55]; //inter-pair interval in interval condition
+    let cue = [600, 900][long?1:0];
+    let ISIShort = [1.3, 1.4, 1.5, 1.6, 1.7];
+    let ISILong = [1.95, 2.1, 2.25, 2.4, 2.55]; //inter-pair interval in interval condition
     let initial = 500;
     intervals.push(initial); // first red box.
     intervals.push(initial + cue); // second red box.
-    randomIndex = Math.floor(Math.random() * ISIS.length);
-    let randomOffset = ISIS[randomIndex] * 1000;
+    let randomIndex = Math.floor(Math.random() * ISIShort.length);
+    let randomOffset = ISIShort[randomIndex] * 1000;
+    if (long) randomOffset = ISILong[randomIndex] * 1000;
     intervals.push(initial + cue + randomOffset);
     intervals.push(initial + cue + randomOffset + cue);
 
-    return new Trial(intervals.slice(0, 2), intervals[2], intervals[3], TrialType.Interval);
+    return new Trial(intervals.slice(0, 2), intervals[2], intervals[3], TrialType.Interval, long);
 }
 
 
 async function runRandomBlock(blockLength, outputObj) {
-
+    await showInstruction(BLOCK_BEGIN_SRC);
+    await showInstruction(RANDOM_TARGET_SRC);
+    await showInstruction(RANDOM_HELP_SRC);
+    await showInstruction(PRACTICE_SRC);
     let trial = null;
     let trialNum = 0;
+    let longOrShort = getRandomRatioArray(blockLength, 2);
     while (trialNum < blockLength) {
-        trial = createRandomTrial();
+        trial = createRandomTrial(longOrShort[trialNum]);
         let reaction = await runTrial(trial.reds, trial.white, trial.target, trial.showTarget);
         if (reaction[0] !== null) {
             trialNum++;
@@ -203,17 +239,19 @@ async function runRandomBlock(blockLength, outputObj) {
 
  * @returns {Trial} trial object.
  */
-function createRandomTrial() {
+function createRandomTrial(long) {
     let intervals = [];
-    let ISIVals = [0.4, 0.5, 0.6, 0.7, 0.8, 0.6, 0.75, 0.9, 1.05, 1.2];
+    let ISIShort = [0.4, 0.5, 0.6, 0.7, 0.8];
+    let ISILong = [0.6, 0.75, 0.9, 1.05, 1.2];
     let offset = 0;
     for (let i = 0; i < 5; i++) {
-        let randomIndex = Math.floor(Math.random() * ISIVals.length);
-        offset += ISIVals[randomIndex] * 1000;
+        let randomIndex = Math.floor(Math.random() * ISILong.length);
+        if (long) offset += ISILong[randomIndex] * 1000;
+        else offset += ISIShort[randomIndex] * 1000;
         intervals.push(offset);
     }
 
-    return new Trial(intervals.slice(0, 3), intervals[3], intervals[4], TrialType.Random);
+    return new Trial(intervals.slice(0, 3), intervals[3], intervals[4], TrialType.Random, long);
 }
 
 
@@ -242,15 +280,32 @@ function getRandomRatioArray(size, factor) {
 }
 
 
-async function runRhythmBlock(blockLength, dontShowTargetFactor, outputObj) {
+async function runRhythmBlock75(blockLength, outputObj) {
+    await runRhythmBlock(blockLength, 4, outputObj)
+}
+
+
+async function runRhythmBlock100(blockLength, outputObj) {
+    await runRhythmBlock(blockLength, 0, outputObj)
+}
+
+
+async function runRhythmBlock(blockLength, dontShowTargetFactor=0, outputObj) {
+
+    await showInstruction(BLOCK_BEGIN_SRC);
+
+    if (dontShowTargetFactor===0) await showInstruction(RHYTHM_TARGET_SRC);
+    else await showInstruction(RHYTHM_SRC);
+    await showInstruction(RHYTHM_HELP_SRC);
+    await showInstruction(PRACTICE_SRC);
 
     let showTarget = getRandomRatioArray(blockLength, dontShowTargetFactor);
+    let longOrShort = getRandomRatioArray(blockLength, 2);
     let trial = null;
     let trialNum = 0;
-    // let results = [];
 
     while (trialNum < blockLength) {
-        trial = createRhythmTrial(trialNum % 2 === 0, showTarget[trialNum] === 0); //TODO: when long, when short?? is long 900+100...
+        trial = createRhythmTrial(longOrShort[trialNum] === 0, showTarget[trialNum] === 0);
         let reaction = await runTrial(trial.reds, trial.white, trial.target, trial.showTarget);
         if (reaction[0] !== null) {
             trialNum++;
@@ -319,7 +374,7 @@ function waitForSpaceHelper(resolve) {
     window.addEventListener('keydown', ev => {
         if (ev.code === 'Space') {
             console.log('Space pressed, instructions');
-            resolve(1);
+            resolve(getElapsedMS());
         }
         else {
             console.log('Different Key pressed, instructions');
@@ -385,7 +440,6 @@ function feedbackNoTarget() {
 
 function feedbackLate() {
     resetState();
-    result = MS_SHOW_TARGET;
     feedbackElement.src = NO_RESPONSE_SRC;
     showMS(feedbackElement, MS_SHOW_FEEDBACK);
     return waitMS(MS_SHOW_FEEDBACK);
@@ -457,7 +511,7 @@ function waitMS(MS) {
  */
 function closing(ev) {
     console.log("closing..");
-    if (output.length > 0 && !finished) exportXL(output);
+    // if (outputObj !== null && output.length > 0 && !finished) exportXL(output);
 
 
 }
@@ -471,4 +525,14 @@ function resizeInstructions() {
     // if (img.clientHeight > window.innerHeight) {
     img.style.height = window.innerHeight + 'px';
     // }
+}
+
+
+function shuffleArray(array) {
+    let result = array.slice(0);
+    for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
 }
