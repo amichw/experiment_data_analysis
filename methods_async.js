@@ -13,8 +13,6 @@
 
 "use strict";
 
-// let name = "name"; //TODO get name.
-// let userNum = Math.floor(Math.random() * 999); //TODO get userNum.
 const BLOCK_LENGTH = 4;
 
 let output = [];
@@ -175,8 +173,8 @@ async function runExperiment(twice) {
 async function runSingleIntervalBlock(blockLength, outputObj) {
     await showInstruction(BLOCK_BEGIN_SRC);
     await showInstruction(INTERVAL_TARGET_SRC);
-    await showInstruction(INTERVAL_HELP_SRC);
     await showInstruction(PRACTICE_SRC);
+    await showInstruction(INTERVAL_HELP_SRC);
     let trial = null;
     let trialNum = 0;
     let longOrShort = getRandomRatioArray(blockLength, 2);
@@ -217,8 +215,8 @@ function createSingleIntervalTrial(long) {
 async function runRandomBlock(blockLength, outputObj) {
     await showInstruction(BLOCK_BEGIN_SRC);
     await showInstruction(RANDOM_TARGET_SRC);
-    await showInstruction(RANDOM_HELP_SRC);
     await showInstruction(PRACTICE_SRC);
+    await showInstruction(RANDOM_HELP_SRC);
     let trial = null;
     let trialNum = 0;
     let longOrShort = getRandomRatioArray(blockLength, 2);
@@ -243,11 +241,12 @@ function createRandomTrial(long) {
     let intervals = [];
     let ISIShort = [0.4, 0.5, 0.6, 0.7, 0.8];
     let ISILong = [0.6, 0.75, 0.9, 1.05, 1.2];
+    let ISIs = long? ISILong:ISIShort;
+
     let offset = 0;
     for (let i = 0; i < 5; i++) {
-        let randomIndex = Math.floor(Math.random() * ISILong.length);
-        if (long) offset += ISILong[randomIndex] * 1000;
-        else offset += ISIShort[randomIndex] * 1000;
+        let randomIndex = Math.floor(Math.random() * ISIs.length);
+        offset += ISIs[randomIndex] * 1000;
         intervals.push(offset);
     }
 
@@ -296,8 +295,8 @@ async function runRhythmBlock(blockLength, dontShowTargetFactor=0, outputObj) {
 
     if (dontShowTargetFactor===0) await showInstruction(RHYTHM_TARGET_SRC);
     else await showInstruction(RHYTHM_SRC);
-    await showInstruction(RHYTHM_HELP_SRC);
     await showInstruction(PRACTICE_SRC);
+    await showInstruction(RHYTHM_HELP_SRC);
 
     let showTarget = getRandomRatioArray(blockLength, dontShowTargetFactor);
     let longOrShort = getRandomRatioArray(blockLength, 2);
@@ -334,15 +333,15 @@ async function runTrial(reds, white, target, showTarget) {
     let response = -1;
     await waitMS(MS_BETWEEN_TRIALS);
     setupTrial(reds, white, target, showTarget);
-    let reaction = await timeReaction(target, MS_SHOW_TARGET);
+    let reactionTime = await timeReaction(target, MS_SHOW_TARGET);
     hideNow(squareElement);
-    console.log("relative reaction: ", reaction);
-    if (reaction !== null) {
-        if (reaction < 0) {
+    console.log("relative reaction: ", reactionTime);
+    if (reactionTime !== null) {
+        if (reactionTime < 0) {
             response = -1;
             await feedbackEarly();
         } // early.
-        else if (reaction === MS_SHOW_TARGET) {
+        else if (reactionTime === MS_SHOW_TARGET) {
             response = 0;
             if (showTarget) await feedbackLate();
         } // late(didn't press)
@@ -353,7 +352,12 @@ async function runTrial(reds, white, target, showTarget) {
             }  // pressed even though no target:
         }
     }
-    return [reaction, response];
+    else{ // pressed other key then space:
+        await feedbackLate();
+        return [getMSRelativeToTarget(), 0]
+
+    }
+    return [reactionTime, response];
 }
 
 
@@ -407,11 +411,15 @@ function timeReaction(MSTillStimuli, MSShowStimuli) {
         }, MSTillStimuli + MSShowStimuli); // if no press, return.
 
         window.addEventListener('keydown', ev => {
-            if (ev.code === 'Space') {
-                console.log('Space pressed')
-            }
             resetState(); // don't show late msg..
-            resolve(getMSRelativeToTarget());
+
+            if (ev.code === 'Space') {
+                console.log('Space pressed');
+                resolve(getMSRelativeToTarget());
+            }
+            else{ // other key: return false
+                resolve(null);
+            }
         }, {once: true}); // remove after press
     });
 }
