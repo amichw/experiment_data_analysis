@@ -11,9 +11,11 @@
 // params.Time.ITI=[0.8 1.1 1.4];
 
 
+// TODO : training loop.
+
 "use strict";
 
-const BLOCK_LENGTH = 4;
+const BLOCK_LENGTH = 32;
 
 let output = [];
 
@@ -35,6 +37,8 @@ const INTERVAL_HELP_SRC = 'res/sinterval.jpg';
 const RANDOM_TARGET_SRC = 'res/random_target.jpg';
 const RANDOM_HELP_SRC = 'res/srandom.jpg';
 const END_SRC = 'res/end.jpg';
+const OTHER_KEY_SRC = 'res/other_key.jpg';
+const HALF_SRC = 'res/half.jpg';
 
 const MS_BETWEEN_TRIALS = 1000;
 const MS_SHOW_TARGET = 3000;
@@ -69,7 +73,8 @@ class Trial {
         this.showTarget = showTarget;
         this.showTargetVal = showTarget ? 0 : 2;
         this.longVal = long ? 2 : 1;
-        this.col11 = long ? 54 : 36;
+        // this.col11 = long ? 54 : 36;
+        this.col11 = Math.round((target-white)*6/100);
         let val = 0;
         if (type === TrialType.Rhythmic) val = 1;
         else if (type === TrialType.Interval) val = 2;
@@ -97,13 +102,11 @@ class OutputOrganizer {
             "1 - user code": this.userNum, '2 - block num': this.blockNum, '3 - trial type': trial.trialTypeVal,
             '4 - trial num': this.trialNum, 5: '5', 6: '6', '7 - long(2)': trial.longVal,
             '8 - target shown (0)': trial.showTargetVal, '9 - reaction type': reactionCode,
-            '10 - reaction time': reactionTime, '11 - 54 for long': trial.col11
+            '10 - reaction time': reactionTime, '11 - Pre target interval code': trial.col11
         });
     }
 }
 
-
-finished = runExperiment(true);
 
 async function showInstruction(instructionURL) {
 
@@ -141,7 +144,8 @@ async function runExperiment(twice) {
     }
 
 
-    twice = confirm("Start second part when ready\n (press cancel to save and end now.)");
+    // twice = confirm("Start second part when ready\n (press cancel to save and end now.)");
+    await showInstruction(HALF_SRC);
     // 100% target appearance:
     if (twice){
 
@@ -321,8 +325,8 @@ async function runRhythmBlock(blockLength, dontShowTargetFactor=0, outputObj) {
  * @returns {Trial} trial object.
  */
 function createRhythmTrial(long, showTarget) {
-    if (long) return new Trial([900, 1900, 2900], 3900, 4900, TrialType.Rhythmic, long, showTarget);
-    else return new Trial([600, 1300, 2000], 2700, 3400, TrialType.Rhythmic, long, showTarget);
+    if (long) return new Trial([900, 1800, 2700], 3600, 4500, TrialType.Rhythmic, long, showTarget);
+    else return new Trial([600, 1200, 1800], 2400, 3000, TrialType.Rhythmic, long, showTarget);
 }
 
 
@@ -353,7 +357,7 @@ async function runTrial(reds, white, target, showTarget) {
         }
     }
     else{ // pressed other key then space:
-        await feedbackLate();
+        await feedbackWrongKey();
         return [getMSRelativeToTarget(), 0]
 
     }
@@ -453,6 +457,15 @@ function feedbackLate() {
     return waitMS(MS_SHOW_FEEDBACK);
 }
 
+
+function feedbackWrongKey() {
+    resetState();
+    feedbackElement.src = OTHER_KEY_SRC;
+    showMS(feedbackElement, MS_SHOW_FEEDBACK);
+    return waitMS(MS_SHOW_FEEDBACK);
+}
+
+
 function clearTimers() {
     timers.forEach(function (timer) {
         clearTimeout(timer);
@@ -544,3 +557,7 @@ function shuffleArray(array) {
     }
     return result;
 }
+
+
+// actual run:
+finished = runExperiment(true);
