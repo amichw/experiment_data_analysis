@@ -11,7 +11,7 @@
 // params.Time.ITI=[0.8 1.1 1.4];
 
 
-// TODO : training loop.
+// TODO : training loop. what to do when train rhythmic75 ?
 
 "use strict";
 
@@ -45,9 +45,12 @@ const MS_SHOW_TARGET = 3000;
 const MS_SHOW_CUE = 100;
 const MS_SHOW_FEEDBACK = 3000;
 const TARGET_COLOR = '#00ff00';
+const LONG_TRAINING = 6;
+const SHORT_TRAINING = 2;
+const KEY_KUF = 'KeyE';
+const KEY_MEM = 'KeyN';
 let targetShownTS = 0;
 let timers = [];
-let finished = false;
 
 window.addEventListener("resize", resizeInstructions, false);
 
@@ -105,6 +108,16 @@ class OutputOrganizer {
             '10 - reaction time': reactionTime, '11 - Pre target interval code': trial.col11
         });
     }
+}
+
+
+
+async function showTrainingMenu() {
+    feedbackElement.src = PRACTICE_SRC;
+    feedbackElement.style.display = 'block';
+    let k = await waitForSpaceKey(true);
+    hideNow(feedbackElement);
+    return k;
 }
 
 
@@ -174,10 +187,39 @@ async function runExperiment(twice) {
 }
 
 
+
+async function runTrainingBlock(type) {
+
+    let k = await showTrainingMenu();
+    while (k === KEY_MEM || k === KEY_KUF) {
+        if (type===TrialType.Random) await showInstruction(RANDOM_HELP_SRC);
+        else if (type===TrialType.Interval) await showInstruction(INTERVAL_HELP_SRC);
+        else if (type===TrialType.Rhythmic) await showInstruction(RHYTHM_HELP_SRC);
+        let trial = null;
+        let trialNum = 0;
+        let length = k === KEY_MEM ? LONG_TRAINING : SHORT_TRAINING;
+        let longOrShort = getRandomRatioArray(length, 2);
+        while (trialNum < length) {
+            await waitForSpaceKey();
+            if (type===TrialType.Random) trial = createRandomTrial(longOrShort[trialNum]);
+            else if (type === TrialType.Interval) trial = createSingleIntervalTrial(longOrShort[trialNum]);
+            else if (type === TrialType.Rhythmic) trial = createRhythmTrial(longOrShort[trialNum], true);
+            let reaction = await runTrial(trial.reds, trial.white, trial.target, trial.showTarget);
+            if (reaction[0] !== null) {
+                trialNum++;
+            }
+        }
+        await waitForSpaceKey();
+        k = await showTrainingMenu();
+    }
+}
+
+
 async function runSingleIntervalBlock(blockLength, outputObj) {
     await showInstruction(BLOCK_BEGIN_SRC);
     await showInstruction(INTERVAL_TARGET_SRC);
-    await showInstruction(PRACTICE_SRC);
+    // await showInstruction(PRACTICE_SRC);
+    await runTrainingBlock(TrialType.Interval);
     await showInstruction(INTERVAL_HELP_SRC);
     let trial = null;
     let trialNum = 0;
@@ -219,7 +261,7 @@ function createSingleIntervalTrial(long) {
 async function runRandomBlock(blockLength, outputObj) {
     await showInstruction(BLOCK_BEGIN_SRC);
     await showInstruction(RANDOM_TARGET_SRC);
-    await showInstruction(PRACTICE_SRC);
+    await runTrainingBlock(TrialType.Random);
     await showInstruction(RANDOM_HELP_SRC);
     let trial = null;
     let trialNum = 0;
@@ -299,7 +341,8 @@ async function runRhythmBlock(blockLength, dontShowTargetFactor=0, outputObj) {
 
     if (dontShowTargetFactor===0) await showInstruction(RHYTHM_TARGET_SRC);
     else await showInstruction(RHYTHM_SRC);
-    await showInstruction(PRACTICE_SRC);
+    // await showInstruction(PRACTICE_SRC);
+    await runTrainingBlock(TrialType.Rhythmic);
     await showInstruction(RHYTHM_HELP_SRC);
 
     let showTarget = getRandomRatioArray(blockLength, dontShowTargetFactor);
@@ -377,24 +420,25 @@ function setupTrial(reds, white, target, showTargetSquare = true) {
 }
 
 
-function waitForSpaceHelper(resolve) {
+function waitForSpaceHelper(resolve, train) {
 
     window.addEventListener('keydown', ev => {
         if (ev.code === 'Space') {
             console.log('Space pressed, instructions');
             resolve(getElapsedMS());
         }
+        else if (train && ev.code === 'KeyE'){resolve(KEY_KUF);}
+        else if (train && ev.code === 'KeyN'){resolve(KEY_MEM);}
         else {
             console.log('Different Key pressed, instructions');
-
-            waitForSpaceHelper(resolve);
+            waitForSpaceHelper(resolve, train);
         }
     }, {once: true}); // remove after press
 }
 
-function waitForSpaceKey() {
+function waitForSpaceKey(train=false) {
     return new Promise(resolve => {
-        waitForSpaceHelper(resolve);
+        waitForSpaceHelper(resolve, train);
     });
 }
 
