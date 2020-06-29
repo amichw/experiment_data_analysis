@@ -46,7 +46,7 @@ const MS_SHOW_CUE = 100;
 const MS_SHOW_FEEDBACK = 3000;
 const TARGET_COLOR = '#00ff00';
 const LONG_TRAINING = 6;
-const SHORT_TRAINING = 2;
+const SHORT_TRAINING = 3;
 const KEY_KUF = 'KeyE';
 const KEY_MEM = 'KeyN';
 let targetShownTS = 0;
@@ -60,6 +60,7 @@ window.addEventListener("resize", resizeInstructions, false);
 
 const TrialType = Object.freeze({
     Rhythmic: Symbol("rhythmic"),
+    Rhythmic75: Symbol("rhythmic75"),
     Interval: Symbol("interval"),
     Random: Symbol("random")
 });
@@ -207,20 +208,22 @@ async function runExperiment(twice, first) {
 
 async function runTrainingBlock(type) {
 
+    let longOrShort = [1, 0, 0, 1, 1, 0];
+    let targetList = [0, 0, 0, 2, 0, 2];
     let k = await showTrainingMenu();
     while (k === KEY_MEM || k === KEY_KUF) {
         if (type === TrialType.Random) await showInstruction(RANDOM_HELP_SRC);
         else if (type === TrialType.Interval) await showInstruction(INTERVAL_HELP_SRC);
-        else if (type === TrialType.Rhythmic) await showInstruction(RHYTHM_HELP_SRC);
+        else if (type === TrialType.Rhythmic || type === TrialType.Rhythmic75) await showInstruction(RHYTHM_HELP_SRC);
         let trial = null;
         let trialNum = 0;
-        let length = k === KEY_MEM ? LONG_TRAINING : SHORT_TRAINING;
-        let longOrShort = getRandomRatioArray(length, 2);
-        while (trialNum < length) {
+        let trainingLength = k === KEY_MEM ? LONG_TRAINING : SHORT_TRAINING;
+        while (trialNum < trainingLength) {
             await waitForSpaceKey();
             if (type === TrialType.Random) trial = createRandomTrial(longOrShort[trialNum]);
             else if (type === TrialType.Interval) trial = createSingleIntervalTrial(longOrShort[trialNum]);
             else if (type === TrialType.Rhythmic) trial = createRhythmTrial(longOrShort[trialNum], true);
+            else if (type === TrialType.Rhythmic75) trial = createRhythmTrial(longOrShort[trialNum], targetList[trialNum] === 0);
             let reaction = await runTrial(trial.reds, trial.white, trial.target, trial.showTarget);
             if (reaction[0] !== null) {
                 trialNum++;
@@ -359,7 +362,8 @@ async function runRhythmBlock(blockLength, dontShowTargetFactor = 0, outputObj) 
     if (dontShowTargetFactor === 0) await showInstruction(RHYTHM_TARGET_SRC);
     else await showInstruction(RHYTHM_SRC);
     // await showInstruction(PRACTICE_SRC);
-    await runTrainingBlock(TrialType.Rhythmic);
+    if (dontShowTargetFactor === 0)await runTrainingBlock(TrialType.Rhythmic);
+    else await runTrainingBlock(TrialType.Rhythmic75);
     await showInstruction(RHYTHM_HELP_SRC);
 
     let showTarget = getRandomRatioArray(blockLength, dontShowTargetFactor);
