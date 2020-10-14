@@ -1,5 +1,5 @@
 import pandas as pd
-
+import numpy as np
 RT = 'reaction_time'
 
 
@@ -34,6 +34,9 @@ def ratios(df, new_df, groups, title=''):
     by_trial_type = df.groupby(groups)[RT].mean().reset_index()  # data or positiveData?!
     new_df['{} Rhythmic/random'.format(title)] = (by_trial_type[by_trial_type['trial_type'] == 1][RT].tolist() / by_trial_type[by_trial_type['trial_type'] == 3][RT]).to_list()
     new_df['{} Interval/random'.format(title)] = (by_trial_type[by_trial_type['trial_type'] == 2][RT].tolist() / by_trial_type[by_trial_type['trial_type'] == 3][RT]).to_list()
+    new_df['{} Log(random) - Log(Rhythmic)'.format(title)] = (np.log10(by_trial_type[by_trial_type['trial_type'] == 3][RT].tolist())  - np.log10(by_trial_type[by_trial_type['trial_type'] == 1][RT]).to_list())
+    new_df['{} Log(random) - Log(Interval)'.format(title)] = (np.log10(by_trial_type[by_trial_type['trial_type'] == 3][RT].tolist())  - np.log10(by_trial_type[by_trial_type['trial_type'] == 2][RT]).to_list())
+
 
 
 def preprocessing(df, analyze_part):
@@ -125,6 +128,7 @@ def export_to_excel(df, output_path, analyze_part=True):
         # % Nan by BLOCK75
         block_75_100['% mistake'] = data.groupby(['user_code', 'block_100'])['mistake'].mean().to_list()
         create_percent_columns(data, block_75_100, ['user_code', 'block_100'])
+        ratios(data_correct_positive, part, ['user_code', 'block_100', 'trial_type'])
 
     # TOTAL by user::
     user = data_correct_positive.groupby(['user_code'])[RT].mean().reset_index()
