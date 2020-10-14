@@ -30,22 +30,34 @@ def create_percent_columns(df, new_df, groups):
         new_df[col] *= 100
 
 
-def export_to_excel(df, output_path, analyze_part=True):
+def ratios(df, new_df, groups, title=''):
+    by_trial_type = df.groupby(groups)[RT].mean().reset_index()  # data or positiveData?!
+    new_df['{} Rhythmic/random'.format(title)] = (by_trial_type[by_trial_type['trial_type'] == 1][RT].tolist() / by_trial_type[by_trial_type['trial_type'] == 3][RT]).to_list()
+    new_df['{} Interval/random'.format(title)] = (by_trial_type[by_trial_type['trial_type'] == 2][RT].tolist() / by_trial_type[by_trial_type['trial_type'] == 3][RT]).to_list()
+
+
+def preprocessing(df, analyze_part):
     # data = pd.read_excel(input_path)
     data = df
     data.columns = data.columns.map(lambda x: x.strip())
-    # data = data.drop([''], axis=1)
     data['user_code'] = data['user_code'].astype(str).apply(lambda x: x.strip())
     # legit_users = ['A_AYGE9048', 'A_ADGL4716', 'A_TAMA9557', 'A_TZGO7936', 'B_ITKI6815', 'B_NAMA0554', 'B_NEBA1519']
     # data = data[data['user_code'].isin(legit_users)]  # for now. only real trials.
     data = data.drop_duplicates(subset=['user_code', 'block_num', 'trial_num'])
     if analyze_part:
+        data = data.drop([''], axis=1)
         data['part'] = data.apply(lambda row: 1 if row['block_num'] < 7 else 2, axis=1)  # data['block_num']<7
-        data['legit'] = (data['reaction_type']==1).astype(int)
+        data['legit'] = (data['reaction_type'] == 1).astype(int)
+        data['block_100'] = (data['user_code'].apply(lambda x: x.startswith('A')) & (data['part']==2)) | (data['user_code'].apply(lambda x: x.startswith('B')) & (data['part']==1))
     create_response_columns(data)
     data['mistake'] = ((data['time_target'] == 0) & (data['late_no_target'] == 0)).astype(int)
     # dataCorrectPositive = data[(data[RT] > 0) & (data[RT] < 3000) & (data['target_shown']==0) ]
     data_correct_positive = data[(data['reaction_type'] == 1) & (data['target_shown'] == 0)]
+    return data, data_correct_positive
+
+
+def export_to_excel(df, output_path, analyze_part=True):
+    data, data_correct_positive = preprocessing(df, analyze_part)
 
     #  ===============     BLOCK       ====================
     # mean RT by block
@@ -73,6 +85,16 @@ def export_to_excel(df, output_path, analyze_part=True):
         part_type['RT short std'] = data_correct_positive[data_correct_positive['long_2'] == 1].groupby(['user_code', 'part', 'trial_type'])[RT].std().to_list()
         part_type['% mistake'] = data.groupby(['user_code', 'part', 'trial_type'])['mistake'].mean().to_list()
         create_percent_columns(data, part_type, ['user_code', 'part', 'trial_type'])
+        #  ================     BY 100 - 75
+        by_type = data_correct_positive.groupby(['user_code', 'block_100', 'trial_type'])
+        type100_75 = by_type[RT].mean().reset_index()
+        type100_75['std'] = by_type[RT].std().to_list()
+        type100_75['RT long'] = data_correct_positive[data_correct_positive['long_2'] == 2].groupby(['user_code', 'block_100', 'trial_type'])[RT].mean().to_list()
+        type100_75['RT long std'] = data_correct_positive[data_correct_positive['long_2'] == 2].groupby(['user_code', 'block_100', 'trial_type'])[RT].std().to_list()
+        type100_75['RT short'] = data_correct_positive[data_correct_positive['long_2'] == 1].groupby(['user_code', 'block_100', 'trial_type'])[RT].mean().to_list()
+        type100_75['RT short std'] = data_correct_positive[data_correct_positive['long_2'] == 1].groupby(['user_code', 'block_100', 'trial_type'])[RT].std().to_list()
+        type100_75['% mistake'] = data.groupby(['user_code', 'block_100', 'trial_type'])['mistake'].mean().to_list()
+        create_percent_columns(data, type100_75, ['user_code', 'block_100', 'trial_type'])
 
     # ========================================= ==================================================
     #  ===============    CONDITION       ====================
@@ -96,6 +118,13 @@ def export_to_excel(df, output_path, analyze_part=True):
         # % Nan by PART
         part['% mistake'] = data.groupby(['user_code', 'part'])['mistake'].mean().to_list()
         create_percent_columns(data, part, ['user_code', 'part'])
+        ratios(data_correct_positive, part, ['user_code', 'part', 'trial_type'])
+
+        block_75_100 = data_correct_positive.groupby(['user_code', 'block_100'])[RT].mean().reset_index()
+        block_75_100['STD'] = data_correct_positive.groupby(['user_code', 'block_100'])[RT].std().to_list()
+        # % Nan by BLOCK75
+        block_75_100['% mistake'] = data.groupby(['user_code', 'block_100'])['mistake'].mean().to_list()
+        create_percent_columns(data, block_75_100, ['user_code', 'block_100'])
 
     # TOTAL by user::
     user = data_correct_positive.groupby(['user_code'])[RT].mean().reset_index()
@@ -106,9 +135,11 @@ def export_to_excel(df, output_path, analyze_part=True):
     user['count'] = data.groupby(['user_code'])['row'].count().to_list()
 
     # RATIOS:
-    by_trial_type = data.groupby(['user_code', 'trial_type'])[RT].mean().reset_index()  # data or positiveData?!
-    user['Rhythmic/random'] = (by_trial_type[by_trial_type['trial_type'] == 1][RT].tolist() / by_trial_type[by_trial_type['trial_type'] == 3][RT]).to_list()
-    user['Interval/random'] = (by_trial_type[by_trial_type['trial_type'] == 2][RT].tolist() / by_trial_type[by_trial_type['trial_type'] == 3][RT]).to_list()
+    ratios(data, user, ['user_code', 'trial_type'])
+    data100correct = data_correct_positive[data_correct_positive['block_100']]
+    data75correct = data_correct_positive[data_correct_positive['block_100'] == False]
+    ratios(data100correct, user, ['user_code', 'trial_type'], '100')
+    ratios(data75correct, user, ['user_code', 'trial_type'], '75')
 
     # by REACTION TYPE:
     reaction = data.groupby(['user_code', 'reaction_type'])[RT].mean().reset_index()
@@ -121,7 +152,9 @@ def export_to_excel(df, output_path, analyze_part=True):
     increment_index(condition)
     if analyze_part:
         increment_index(part_type)
+        increment_index(type100_75)
         increment_index(part)
+        increment_index(block_75_100)
     increment_index(reaction)
     increment_index(user)
 
@@ -130,14 +163,16 @@ def export_to_excel(df, output_path, analyze_part=True):
         condition.to_excel(writer, sheet_name='by condition')
         if analyze_part:
             part_type.to_excel(writer, sheet_name='condition by part')
+            type100_75.to_excel(writer, sheet_name='condition by 75-100')
             part.to_excel(writer, sheet_name='by part')
+            block_75_100.to_excel(writer, sheet_name='by block 75 100')
         reaction.to_excel(writer, sheet_name='by reaction')
         user.to_excel(writer, sheet_name='by user')
 
 
 if __name__ == '__main__':
     input_path = 'db4.csv'
-    # data = pd.read_csv(input_path), 'db_data.xlsx'
+    data = pd.read_csv(input_path)
     export_to_excel(pd.read_csv(input_path), 'db_data.xlsx')
     exit(42)
     #  ======  for old data:
