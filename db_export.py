@@ -1,5 +1,8 @@
 import pandas as pd
 import numpy as np
+import sys
+
+
 RT = 'reaction_time'
 
 
@@ -138,12 +141,14 @@ def export_to_excel(df, output_path, analyze_part=True):
     create_percent_columns(data, user, ['user_code'])
     user['count'] = data.groupby(['user_code'])['row'].count().to_list()
 
-    # RATIOS:
-    ratios(data, user, ['user_code', 'trial_type'])
-    data100correct = data_correct_positive[data_correct_positive['block_100']]
-    data75correct = data_correct_positive[data_correct_positive['block_100'] == False]
-    ratios(data100correct, user, ['user_code', 'trial_type'], '100')
-    ratios(data75correct, user, ['user_code', 'trial_type'], '75')
+    # RATIOS for user:
+    ratios(data_correct_positive, user, ['user_code', 'trial_type'])
+    if analyze_part:
+        data100correct = data_correct_positive[data_correct_positive['block_100']]
+        data75correct = data_correct_positive[data_correct_positive['block_100'] == False]
+        ratios(data100correct, user, ['user_code', 'trial_type'], '100')
+        ratios(data75correct, user, ['user_code', 'trial_type'], '75')
+
 
     # by REACTION TYPE:
     reaction = data.groupby(['user_code', 'reaction_type'])[RT].mean().reset_index()
@@ -175,17 +180,27 @@ def export_to_excel(df, output_path, analyze_part=True):
 
 
 if __name__ == '__main__':
-    input_path = 'db4.csv'
-    data = pd.read_csv(input_path)
-    export_to_excel(pd.read_csv(input_path), 'db_data.xlsx')
-    exit(42)
+    # input_path = 'db1.csv'
+    input_path = None
+
+    if not input_path and (len(sys.argv) != 2 and len(sys.argv) != 3):
+        print('Usage: <input_csv_file>')
+        print("if old files, Usage: <input_csv_file> old ")
+        exit(31)
+
+    if not input_path:
+        input_path = sys.argv[1]
+    old = len(sys.argv) == 3 and sys.argv[2]=='old'
+    if not old:
+        data = pd.read_csv(input_path)
+        export_to_excel(pd.read_csv(input_path), input_path+'.xlsx')
+        exit(42)
     #  ======  for old data:
     xls = pd.ExcelFile(input_path)
     for sheet in xls.sheet_names:
         data = pd.read_excel(input_path, sheet_name=sheet)
         data = data.dropna()
-        # data[' reaction_time'] =  data[' reaction_time'] * 1000
-        output = 'dafna_{}.xlsx'.format(sheet)
-        export_to_excel(data, output, True)
-        exit(35)
-
+        data[' reaction_time'] =  data[' reaction_time'] * 1000
+        output = '{}_{}.xlsx'.format(input_path, sheet)
+        export_to_excel(data, output, False)
+    #
